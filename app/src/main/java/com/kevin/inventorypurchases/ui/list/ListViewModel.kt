@@ -1,0 +1,35 @@
+package com.kevin.inventorypurchases.ui.list
+
+import android.app.Application
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.kevin.inventorypurchases.App
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+
+class ListViewModel(private val app: Application) : AndroidViewModel(app) {
+    private val repo get() = (app as App).repo
+    val items = repo.streamAll().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun exportCsv() {
+        repo.exportCsv()
+    }
+
+    companion object {
+        val Factory: ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
+                val app = extras[APPLICATION_KEY] as Application
+                return ListViewModel(app) as T
+            }
+        }
+    }
+
+}

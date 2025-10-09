@@ -1,0 +1,88 @@
+# ======================
+# Android / Gradle setup
+# ======================
+
+# Gradle files
+.gradle/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local configuration
+local.properties
+.gradle/
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+.idea/shelf/
+.idea/deploymentTargetDropDown.xml
+
+# Android Studio captures
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Keystore files (DO NOT COMMIT)
+*.jks
+*.keystore
+*.pem
+*.p12
+*.key
+
+# ======================
+# OS / Environment files
+# ======================
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# ======================
+# Build and output dirs
+# ======================
+bin/
+gen/
+out/
+release/
+*.apk
+*.ap_
+*.aab
+*.aar
+
+# ======================
+# Log and temporary files
+# ======================
+*.log
+*.tmp
+*.temp
+
+# ======================
+# IntelliJ / Android Studio
+# ======================
+.idea/
+*.iml
+
+# ======================
+# Jetpack Compose / Kotlin
+# ======================
+.kotlinc/
+*.kts~
+*.class
+
+# ======================
+# Misc
+# ======================
+*.lock
+.gradle/
+.cache/
+navigation.json
