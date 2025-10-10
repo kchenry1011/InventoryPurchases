@@ -1,64 +1,54 @@
 package com.kevin.inventorypurchases.util
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import com.kevin.inventorypurchases.data.db.Purchase
 import java.io.File
 import java.io.FileWriter
+import java.util.Locale
 
 object CsvExporter {
-    private const val HEADER = "PhotoUri,PurchaseDate,Description,Price,Quantity,Notes"
+    private val header = listOf(
+        "Id",
+        "Description",
+        "Price",              // $12.34
+        "Quantity",
+        "PurchaseDate",       // MM/dd/yyyy
+        "Notes",
+        "PhotoFileNames"      // semicolon-separated
+    )
 
-    fun writeHeaderIfEmpty(file: File) {
-        if (!file.exists() || file.length() == 0L) {
-            file.parentFile?.mkdirs()
-            file.writeText(HEADER + "\n")
-        }
-    }
-
-    fun appendAll(file: File, rows: List<Purchase>) {
-        FileWriter(file, /* append = */ true).use { fw ->
-            for (p in rows) {
-                val price = (p.priceCents.toDouble() / 100.0)
-                val date = DateFmt.mmDdYyyy(p.purchaseDateEpoch)
-                val notesEscaped = csvEscape(p.notes)
-                val line = listOf(
-                    p.photoUri.orEmpty(),
-                    date,
-                    Csv.quote(p.description),
-                    price.toString(),
+    fun writeCsvWithPhotoFilenames(
+        csvFile: File,
+        rows: List<Purchase>,
+        photoFilenamesFor: (Purchase) -> String
+    ) {
+        csvFile.parentFile?.mkdirs()
+        FileWriter(csvFile, false).use { w ->
+            w.appendLine(header.joinToString(","))
+            rows.forEach { p ->
+                val priceDollars = String.format(Locale.US, "$%.2f", p.priceCents / 100.0)
+                val dateStr = p.purchaseDateEpoch?.let { DateFmt.mmDdYyyy(it) } ?: ""
+                val cols = listOf(
+                    escape(p.id),
+                    escape(dateStr),
+                    escape(p.description),
+                    escape(priceDollars),
                     p.quantity.toString(),
-                    notesEscaped
-                ).joinToString(",")
-                fw.appendLine(line)
+                    escape(p.notes ?: ""),
+                    escape(photoFilenamesFor(p))
+                )
+                val line = cols.joinToString(",")
+                // Optional: uncomment to verify
+                 android.util.Log.d("CsvExporter", "CSV: $line")
+                w.appendLine(line)
             }
+            w.flush()
         }
     }
-    private fun csvEscape(s: String): String =
-        if (s.any { it == ',' || it == '"' || it == '\n' || it == '\r' })
-            "\"${s.replace("\"", "\"\"")}\""
-        else s
-    private object Csv {
-        fun quote(s: String): String {
-            // Quote only when needed (commas, quotes, or newlines present)
-            val needs = s.any { it == ',' || it == '"' || it == '\n' || it == '\r' }
-            if (!needs) return s
-            // Double any embedded quotes: " -> ""
-            val esc = s.replace("\"", "\"\"")
-            // Wrap the whole field in quotes
-            return "\"$esc\""
-        }
-    }
-}
 
-object DateFmt {
-    fun yyyyMmDd(epochMillis: Long): String {
-        val z = java.time.ZoneOffset.UTC
-        val d = java.time.Instant.ofEpochMilli(epochMillis).atZone(z).toLocalDate()
-        return d.toString()
-    }
-    fun mmDdYyyy(epoch: Long): String {
-        val fmt = java.text.SimpleDateFormat("MM/dd/yyyy", java.util.Locale.US)
-        return fmt.format(java.util.Date(epoch))
+    private fun escape(s: String?): String {
+        val v = s ?: ""
+        return if (v.contains(',') || v.contains('"') || v.contains('\n') || v.contains('\r')) {
+            "\"${v.replace("\"", "\"\"")}\""
+        } else v
     }
 }

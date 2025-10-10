@@ -2,6 +2,7 @@
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- You write to appContext.cacheDir -->
     <cache-path name="cache" path="." />
+    <files-path name="files" path="." />
     <!-- Optional: external cache too, if you ever use it -->
     <external-cache-path name="external_cache" path="." />
 </paths>
