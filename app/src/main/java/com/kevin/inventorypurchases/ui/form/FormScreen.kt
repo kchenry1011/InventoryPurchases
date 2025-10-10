@@ -48,8 +48,16 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.saveable.rememberSaveable
 import java.time.LocalDate
-
-
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -61,21 +69,77 @@ fun FormScreen(
     navigateToList: () -> Unit
 ) {
     val s = state.value
+    var pendingRefocus by remember { mutableStateOf(false) }  // NEW
+    val focusManager = LocalFocusManager.current
+    val priceFocus = remember { FocusRequester() }
+    val qtyFocus = remember { FocusRequester() }
+    val notesFocus = remember { FocusRequester() }
+    var qtyTextFieldValue by remember { mutableStateOf(TextFieldValue(s.quantityText)) }
+    val qtyFocusRequester = qtyFocus
+    val descriptionFocus = remember { FocusRequester() }   // NEW
+    val qtyFocusState = remember { mutableStateOf(false) }
     LaunchedEffect(s.error) { /* placeholder for snackbars */ }
-
+    LaunchedEffect(qtyFocusState.value) {
+        if (qtyFocusState.value) {
+            // Select the full range of text when gaining focus
+            qtyTextFieldValue = qtyTextFieldValue.copy(
+                selection = TextRange(0, qtyTextFieldValue.text.length)
+            )
+        }
+    }
+    LaunchedEffect(s.isSaving, pendingRefocus) {
+        if (pendingRefocus && !s.isSaving) {
+            // Save is done → focus Description
+            descriptionFocus.requestFocus()
+            pendingRefocus = false
+        }
+    }
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Inventory Purchases") },
                 actions = { TextButton(onClick = navigateToList) { Text("List") } }
             )
+        },
+        contentWindowInsets = WindowInsets(0),
+        bottomBar = {
+            Surface(tonalElevation = 3.dp) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp)
+                        .navigationBarsPadding()
+                        .imePadding(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilledTonalButton(
+                        onClick = {
+                            focusManager.clearFocus(force = true) // hide keyboard now
+                            pendingRefocus = true                 // refocus when save completes
+                            onIntent(FormIntent.Save)
+                        },                        enabled = !s.isSaving,
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Save") }
+
+                    Button(
+                        onClick = {
+                            focusManager.clearFocus(force = true) // hide keyboard now
+                            pendingRefocus = true                 // refocus when save completes
+                            onIntent(FormIntent.SaveAndNext)
+                        },                        enabled = !s.isSaving,
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Save & Add Next") }
+                }
+            }
         }
     ) { pad ->
         Column(
-            Modifier
+            modifier = Modifier
                 .padding(pad)
                 .padding(16.dp)
-                .fillMaxSize(),
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             PhotoGallery(
@@ -83,30 +147,59 @@ fun FormScreen(
                 onAdd = { onIntent(FormIntent.AddPhoto(it)) },
                 onRemoveAt = { i -> onIntent(FormIntent.RemovePhotoAt(i)) }
             )
+            // Description: single line; Return -> Price
             OutlinedTextField(
                 value = s.description,
                 onValueChange = { onIntent(FormIntent.SetDescription(it)) },
                 label = { Text("Description") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = false,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(descriptionFocus),   // NEW
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(
+                    onNext = { priceFocus.requestFocus() }
+                ),
                 supportingText = { Text("What is it? Include details you’ll recognize later.") }
             )
 
+            // Price: numeric; Return -> Quantity
             OutlinedTextField(
                 value = s.priceText,
                 onValueChange = { onIntent(FormIntent.SetPriceText(it)) },
                 label = { Text("Price") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = { qtyFocus.requestFocus() }
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(priceFocus),
                 singleLine = true
             )
 
+            // Quantity: numeric; Return -> Notes (skip the date row)
             OutlinedTextField(
-                value = s.quantityText,
-                onValueChange = { onIntent(FormIntent.SetQuantityText(it)) },
+                value = qtyTextFieldValue,
+                onValueChange = {
+                    qtyTextFieldValue = it
+                    onIntent(FormIntent.SetQuantityText(it.text))
+                },
                 label = { Text("Quantity") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = { notesFocus.requestFocus() }
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(qtyFocusRequester)
+                    .onFocusChanged { qtyFocusState.value = it.isFocused },
                 singleLine = true
             )
 
@@ -122,22 +215,16 @@ fun FormScreen(
                 label = { Text("Notes") },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
+                    .padding(top = 8.dp)
+                    .focusRequester(notesFocus),
                 singleLine = false,
-                minLines = 3
+                minLines = 3,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default)
+                // no KeyboardActions -> default "newline" behavior
             )
 
             if (s.error != null) {
                 Text(s.error!!, color = MaterialTheme.colorScheme.error)
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(enabled = !s.isSaving, onClick = { onIntent(FormIntent.Save) }) {
-                    Text("Save")
-                }
-                Button(enabled = !s.isSaving, onClick = { onIntent(FormIntent.SaveAndNext) }) {
-                    Text("Save & Add Next")
-                }
             }
         }
     }
