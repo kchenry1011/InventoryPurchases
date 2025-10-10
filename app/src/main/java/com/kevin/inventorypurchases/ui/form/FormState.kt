@@ -3,7 +3,7 @@ package com.kevin.inventorypurchases.ui.form
 import android.net.Uri
 
 data class FormState(
-    val photoUri: Uri? = null,
+    val photoUris: List<Uri> = emptyList(),
     val description: String = "",
     val priceText: String = "",
     val quantityText: String = "1",

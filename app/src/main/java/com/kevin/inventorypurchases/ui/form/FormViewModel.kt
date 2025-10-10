@@ -1,5 +1,4 @@
 package com.kevin.inventorypurchases.ui.form
-
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
@@ -21,8 +20,10 @@ sealed interface FormIntent {
     data class SetDateMillis(val v: Long) : FormIntent
     data object Save : FormIntent
     data object SaveAndNext : FormIntent
-    data object ClearPhoto : FormIntent
     data object ClearError : FormIntent
+    data class AddPhoto(val uri: Uri) : FormIntent
+    data class RemovePhotoAt(val index: Int) : FormIntent
+    object ClearPhotos : FormIntent
 }
 
 
@@ -35,12 +36,37 @@ class FormViewModel(private val app: Application) : AndroidViewModel(app) {
 
     fun onIntent(i: FormIntent) {
         when (i) {
-            is FormIntent.SetPhoto -> state.value = state.value.copy(photoUri = i.uri)
+            // Map the legacy SetPhoto to the new list (0 or 1 item)
+            is FormIntent.SetPhoto -> {
+                val current = state.value
+                state.value = current.copy(
+                    photoUris = i.uri?.let { listOf(it) } ?: emptyList()
+                )
+            }
+
+            // New multi-photo actions
+            is FormIntent.AddPhoto -> {
+                val s = state.value
+                if (!s.photoUris.contains(i.uri)) {
+                    state.value = s.copy(photoUris = s.photoUris + i.uri)
+                }
+            }
+            is FormIntent.RemovePhotoAt -> {
+                val s = state.value
+                if (i.index in s.photoUris.indices) {
+                    val newList = s.photoUris.toMutableList().apply { removeAt(i.index) }
+                    state.value = s.copy(photoUris = newList)
+                }
+            }
+            FormIntent.ClearPhotos -> {
+                state.value = state.value.copy(photoUris = emptyList())
+            }
+
+            // Everything else unchanged
             is FormIntent.SetDescription -> state.value = state.value.copy(description = i.v)
             is FormIntent.SetPriceText -> state.value = state.value.copy(priceText = i.v)
             is FormIntent.SetQuantityText -> state.value = state.value.copy(quantityText = i.v)
             is FormIntent.SetDateMillis -> state.value = state.value.copy(dateMillis = i.v)
-            FormIntent.ClearPhoto -> state.value = state.value.copy(photoUri = null)
             FormIntent.ClearError -> state.value = state.value.copy(error = null)
             FormIntent.Save -> save(clearAfter = false)
             FormIntent.SaveAndNext -> save(clearAfter = true)
@@ -56,7 +82,7 @@ class FormViewModel(private val app: Application) : AndroidViewModel(app) {
         state.value = s.copy(isSaving = true, error = null)
 
         val p = Purchase(
-            photoUri = s.photoUri?.toString(),
+            photoUri = s.photoUris?.toString(),
             description = desc,
             priceCents = cents,
             quantity = qty,
@@ -65,7 +91,7 @@ class FormViewModel(private val app: Application) : AndroidViewModel(app) {
         repo.add(p)
 
         state.value =
-            if (clearAfter) s.copy(photoUri = null, description = "", priceText = "", isSaving = false, error = null)
+            if (clearAfter) s.copy(photoUris = emptyList(), description = "", priceText = "", isSaving = false, error = null)
             else s.copy(isSaving = false)
     }
 
