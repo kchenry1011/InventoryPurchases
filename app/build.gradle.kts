@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.kevin.inventorypurchases"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
@@ -46,6 +46,7 @@ android {
 
 dependencies {
     implementation("androidx.compose.foundation:foundation:1.9.3")
+    implementation("androidx.compose.material3:material3:1.4.0")
     val composeBom = platform("androidx.compose:compose-bom:2024.10.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
@@ -75,4 +76,10 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")   // ← add
+    arg("room.incremental", "true")
+    arg("room.expandProjection", "true")
 }

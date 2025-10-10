@@ -23,6 +23,7 @@ sealed interface FormIntent {
     data object ClearError : FormIntent
     data class AddPhoto(val uri: Uri) : FormIntent
     data class RemovePhotoAt(val index: Int) : FormIntent
+    data class SetNotes(val v: String) : FormIntent  // <-- NEW
     object ClearPhotos : FormIntent
 }
 
@@ -34,6 +35,13 @@ class FormViewModel(private val app: Application) : AndroidViewModel(app) {
 
     private val repo get() = (app as App).repo
 
+    init {
+        // If dateMillis is not set yet, default it to today's local midnight
+        val s = state.value
+        if (s.dateMillis == null) {
+            state.value = s.copy(dateMillis = startOfTodayCompat())
+        }
+    }
     fun onIntent(i: FormIntent) {
         when (i) {
             // Map the legacy SetPhoto to the new list (0 or 1 item)
@@ -43,7 +51,9 @@ class FormViewModel(private val app: Application) : AndroidViewModel(app) {
                     photoUris = i.uri?.let { listOf(it) } ?: emptyList()
                 )
             }
-
+            is FormIntent.SetNotes -> {
+                state.value = state.value.copy(notes = i.v)
+            }
             // New multi-photo actions
             is FormIntent.AddPhoto -> {
                 val s = state.value
@@ -72,7 +82,14 @@ class FormViewModel(private val app: Application) : AndroidViewModel(app) {
             FormIntent.SaveAndNext -> save(clearAfter = true)
         }
     }
-
+    private fun startOfTodayCompat(): Long {
+        val cal = java.util.Calendar.getInstance()
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        cal.set(java.util.Calendar.MINUTE, 0)
+        cal.set(java.util.Calendar.SECOND, 0)
+        cal.set(java.util.Calendar.MILLISECOND, 0)
+        return cal.timeInMillis
+    }
     private fun save(clearAfter: Boolean) = viewModelScope.launch {
         val s = state.value
         val cents = parseCents(s.priceText) ?: return@launch fail("Enter a valid price")
@@ -86,7 +103,8 @@ class FormViewModel(private val app: Application) : AndroidViewModel(app) {
             description = desc,
             priceCents = cents,
             quantity = qty,
-            purchaseDateEpoch = s.dateMillis
+            purchaseDateEpoch = s.dateMillis,
+            notes = s.notes
         )
         repo.add(p)
 

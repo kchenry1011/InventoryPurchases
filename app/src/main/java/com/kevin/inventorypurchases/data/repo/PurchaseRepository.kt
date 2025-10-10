@@ -9,6 +9,9 @@ import com.kevin.inventorypurchases.data.db.Purchase
 import com.kevin.inventorypurchases.data.db.PurchaseDao
 import com.kevin.inventorypurchases.util.CsvExporter
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import java.io.File
 
 class PurchaseRepository(
@@ -19,16 +22,29 @@ class PurchaseRepository(
     fun streamAll(): Flow<List<Purchase>> = dao.streamAll()
     suspend fun deleteAll() = dao.deleteAll()
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun exportCsv(nowMillis: Long = System.currentTimeMillis()): Uri {
+    suspend fun exportCsv(nowMillis: Long = System.currentTimeMillis()): Uri = withContext(Dispatchers.IO) {
         val file = File(appContext.cacheDir, "inventory_${nowMillis}.csv")
+
+        // Grab the current list of purchases (no new DAO calls needed)
+        val rows: List<Purchase> = streamAll().first()
+
+        // Write header once, then append rows
         CsvExporter.writeHeaderIfEmpty(file)
-        // In a later step we will pass real DB rows here.
-        CsvExporter.appendAll(file, emptyList())
-        return FileProvider.getUriForFile(
+        CsvExporter.appendAll(file, rows)
+
+        // Return a content:// URI for sharing
+        FileProvider.getUriForFile(
             appContext,
             "${appContext.packageName}.fileprovider",
             file
         )
+    }
+
+    suspend fun deletePurchaseById(id: String) = withContext(Dispatchers.IO) {
+        dao.deleteById(id)   // DAO already uses String id
+    }
+
+    suspend fun deleteAllPurchases() = withContext(Dispatchers.IO) {
+        dao.deleteAll()
     }
 }

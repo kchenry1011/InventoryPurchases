@@ -43,6 +43,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.saveable.rememberSaveable
+import java.time.LocalDate
+
+
+
+
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,9 +110,21 @@ fun FormScreen(
                 singleLine = true
             )
 
-            DateField(
-                epochMillis = s.dateMillis,
-                onChange = { onIntent(FormIntent.SetDateMillis(it)) }
+            DateRow(
+                dateMillis = s.dateMillis,
+                onSetDateMillis = { onIntent(FormIntent.SetDateMillis(it)) }
+            )
+
+            // Notes input (multi-line)
+            TextField(
+                value = s.notes,
+                onValueChange = { onIntent(FormIntent.SetNotes(it)) },
+                label = { Text("Notes") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                singleLine = false,
+                minLines = 3
             )
 
             if (s.error != null) {
@@ -121,6 +142,76 @@ fun FormScreen(
         }
     }
 }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DateRow(
+    dateMillis: Long?,                    // nullable = not set yet
+    onSetDateMillis: (Long) -> Unit
+) {
+    var open by rememberSaveable { mutableStateOf(false) }
+
+    // Show the currently selected date (or Today)
+    val display = formatDateForUi(dateMillis)
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        OutlinedButton(onClick = { open = true }) {
+            Text(display)
+        }
+        if (dateMillis != null) {
+            TextButton(onClick = {
+                // If you want a “clear” button, uncomment the next line and add an intent for clearing
+                // onSetDateMillis(/* maybe Today or a special sentinel */)
+            }) {
+                // Text("Clear")  // optional — keeping UI minimal as requested
+            }
+        }
+    }
+
+    if (open) {
+        // Initial selection defaults to existing date or today
+        val init = dateMillis ?: startOfToday()
+        val state = rememberDatePickerState(initialSelectedDateMillis = init)
+
+        DatePickerDialog(
+            onDismissRequest = { open = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val picked = state.selectedDateMillis ?: startOfToday()
+                    onSetDateMillis(startOfDayLocal(picked))  // normalize to local start-of-day
+                    open = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { open = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = state)
+        }
+    }
+}
+private val uiDateFmt: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("EEE, MMM d, yyyy", Locale.getDefault())
+
+private fun formatDateForUi(millis: Long?): String {
+    val z = ZoneId.systemDefault()
+    val ld = if (millis != null)
+        Instant.ofEpochMilli(millis).atZone(z).toLocalDate()
+    else
+        LocalDate.now(z)
+    return ld.format(uiDateFmt)
+}
+
+/** Normalize any millis to LOCAL start-of-day to avoid off-by-one when crossing timezones. */
+private fun startOfDayLocal(millis: Long): Long {
+    val z = ZoneId.systemDefault()
+    val ld = Instant.ofEpochMilli(millis).atZone(z).toLocalDate()
+    return ld.atStartOfDay(z).toInstant().toEpochMilli()
+}
+
+private fun startOfToday(): Long = startOfDayLocal(System.currentTimeMillis())
 
 @Composable
 private fun PhotoGallery(

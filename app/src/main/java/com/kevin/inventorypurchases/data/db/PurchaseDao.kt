@@ -12,4 +12,6 @@ interface PurchaseDao {
     fun streamAll(): Flow<List<Purchase>>
     @Query("DELETE FROM purchases")
     suspend fun deleteAll()
+    @Query("DELETE FROM purchases WHERE id = :id")
+    suspend fun deleteById(id: String)
 }
