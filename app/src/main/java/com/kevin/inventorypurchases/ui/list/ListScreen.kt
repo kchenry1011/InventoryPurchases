@@ -30,7 +30,9 @@ import com.kevin.inventorypurchases.data.db.Purchase
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
-
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListScreen(onBack: () -> Unit) {
@@ -38,6 +40,12 @@ fun ListScreen(onBack: () -> Unit) {
     val items by vm.items.collectAsState(initial = emptyList())
     val context = LocalContext.current
 
+    val locationPermsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* grants -> */
+        // Regardless of grant/deny, VM will embed location if available.
+        vm.shareCsvAndPhotos()
+    }
     LaunchedEffect(Unit) {
         vm.shareZip.collectLatest { uri ->
             val i = Intent(Intent.ACTION_SEND).apply {
@@ -56,7 +64,15 @@ fun ListScreen(onBack: () -> Unit) {
                 title = { Text("Purchases") },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
                 actions = {
-                    Button(onClick = { vm.shareCsvAndPhotos() }) {
+                    Button(onClick = {
+                        // Ask for permission only if we don't have it; otherwise share immediately.
+                        locationPermsLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    }) {
                         Text("Share CSV + Photos")
                     }
                     Spacer(Modifier.width(8.dp))

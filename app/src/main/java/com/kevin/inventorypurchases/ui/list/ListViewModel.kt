@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.kevin.inventorypurchases.util.LocationHelper
 
 class ListViewModel(private val app: Application) : AndroidViewModel(app) {
     private val repo get() = (app as App).repo
@@ -24,7 +25,7 @@ class ListViewModel(private val app: Application) : AndroidViewModel(app) {
 
     fun shareCsvAndPhotos() {
         viewModelScope.launch {
-            val uri = repo.exportCsvAndPhotosZip()
+            val uri = repo.exportCsvAndPhotosZip() // ← no String arg
             shareZipChannel.send(uri)
         }
     }

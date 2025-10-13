@@ -29,15 +29,15 @@ class PurchaseRepository(
 
     suspend fun exportCsvAndPhotosZip(nowMillis: Long = System.currentTimeMillis()): Uri =
         withContext(Dispatchers.IO) {
-// 1) Load all rows
+            // 1) Load all rows
             val rows: List<Purchase> = streamAll().first()
 
-// 2) Prep export dirs/files
+            // 2) Prep export dirs/files
             val exportDir = File(appContext.cacheDir, "export_$nowMillis").apply { mkdirs() }
             val photosDir = File(exportDir, "photos").apply { mkdirs() }
             val csvFile = File(exportDir, "inventory_$nowMillis.csv")
 
-// 3) Copy photos + build per-row filename list
+            // 3) Copy photos + build per-row filename list
             val filenamesById: Map<String, List<String>> = rows.associate { p ->
                 val uris = parsePhotoList(p.photoUri)
                 val names = uris.mapIndexedNotNull { idx, u ->
@@ -49,25 +49,29 @@ class PurchaseRepository(
                 p.id to names
             }
 
-// 4) Write CSV using pretty formats + our filenames
+            // 4) Write CSV using pretty formats + our filenames
             CsvExporter.writeCsvWithPhotoFilenames(
                 csvFile = csvFile,
                 rows = rows,
                 photoFilenamesFor = { p -> filenamesById[p.id].orEmpty().joinToString(";") }
             )
 
-// 5) Zip the export folder
+            // 4.5) NEW: Write location.txt into exportDir (once)
+            val location = com.kevin.inventorypurchases.util.LocationHelper.getBestEffortLocation(appContext)
+            val locTxt = com.kevin.inventorypurchases.util.LocationHelper.toLocationTxt(location)
+            File(exportDir, "location.txt").writeText(locTxt, Charsets.UTF_8)
+
+            // 5) Zip the export folder
             val zipFile = File(appContext.cacheDir, "inventory_export_$nowMillis.zip")
             zipDirectory(exportDir, zipFile)
 
-// 6) Return shareable URI
+            // 6) Return shareable URI
             FileProvider.getUriForFile(
                 appContext,
                 "${appContext.packageName}.fileprovider",
                 zipFile
             )
         }
-
 // ---- helpers ----
 
     private fun parsePhotoList(stored: String?): List<Uri> {
@@ -105,7 +109,12 @@ class PurchaseRepository(
             else -> null
         }
     }
-
+    private fun ZipOutputStream.putTextEntry(name: String, content: String) {
+        val bytes = content.toByteArray(Charsets.UTF_8)
+        putNextEntry(ZipEntry(name))
+        write(bytes)
+        closeEntry()
+    }
     private fun zipDirectory(sourceDir: File, zipFile: File) {
         ZipOutputStream(FileOutputStream(zipFile)).use { zos ->
             fun addAll(base: File, f: File) {
