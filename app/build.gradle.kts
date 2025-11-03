@@ -47,6 +47,7 @@ android {
 dependencies {
     implementation("androidx.compose.foundation:foundation:1.9.3")
     implementation("androidx.compose.material3:material3:1.4.0")
+    implementation("androidx.compose.foundation:foundation:1.9.4")
     val composeBom = platform("androidx.compose:compose-bom:2024.10.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
@@ -62,6 +63,7 @@ dependencies {
 
     implementation("androidx.navigation:navigation-compose:2.8.2")
     implementation("com.google.android.material:material:1.12.0") // adds Theme.Material3.*
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 
     // Room
     implementation("androidx.room:room-runtime:2.6.1")

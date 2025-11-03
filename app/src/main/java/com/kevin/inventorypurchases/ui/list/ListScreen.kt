@@ -32,12 +32,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListScreen(onBack: () -> Unit) {
     val vm: ListViewModel = viewModel(factory = ListViewModel.Factory)
     val items by vm.items.collectAsState(initial = emptyList())
+    val isSharing by vm.isSharing.collectAsState()   // <— add this
     val context = LocalContext.current
 
     val locationPermsLauncher = rememberLauncherForActivityResult(
@@ -64,16 +74,33 @@ fun ListScreen(onBack: () -> Unit) {
                 title = { Text("Purchases") },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
                 actions = {
-                    Button(onClick = {
-                        // Ask for permission only if we don't have it; otherwise share immediately.
-                        locationPermsLauncher.launch(
-                            arrayOf(
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
+                    Button(
+                        onClick = {
+                            // Only trigger if not already sharing
+                            if (!isSharing) {
+                                locationPermsLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.ACCESS_COARSE_LOCATION
+                                    )
+                                )
+                            }
+                        },
+                        enabled = !isSharing
+                    ) {
+                        if (isSharing) {
+                            // Inline spinner next to the label
+                            androidx.compose.material3.CircularProgressIndicator(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .padding(end = 8.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
                             )
-                        )
-                    }) {
-                        Text("Share CSV + Photos")
+                            Text("Preparing…")
+                        } else {
+                            Text("Share CSV + Photos")
+                        }
                     }
                     Spacer(Modifier.width(8.dp))
                     OutlinedButton(
@@ -84,15 +111,32 @@ fun ListScreen(onBack: () -> Unit) {
             )
         }
     ) { pad ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(pad)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(16.dp)
+        Box(modifier = Modifier
+            .padding(pad)
+            .fillMaxSize()
         ) {
-            items(items, key = { it.id }) { p ->
-                PurchaseRow(p = p, onDelete = { vm.deleteOne(p.id) })
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            // Main content
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp)
+            ) {
+                items(items, key = { it.id }) { p ->
+                    PurchaseRow(p = p, onDelete = { vm.deleteOne(p.id) })
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                }
+            }
+
+            // Centered overlay spinner while exporting/sharing
+            if (isSharing) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.30f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
             }
         }
     }

@@ -15,7 +15,10 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-
+import android.provider.OpenableColumns
+import androidx.exifinterface.media.ExifInterface
+import java.text.SimpleDateFormat
+import java.util.Locale
 class PurchaseRepository(
     private val dao: PurchaseDao,
     private val appContext: Context
@@ -41,10 +44,9 @@ class PurchaseRepository(
             val filenamesById: Map<String, List<String>> = rows.associate { p ->
                 val uris = parsePhotoList(p.photoUri)
                 val names = uris.mapIndexedNotNull { idx, u ->
-                    val ext = guessExtension(u) ?: ".jpg"
-                    val name = "p_${p.id}__${idx + 1}$ext"
-                    val dest = File(photosDir, name)
-                    if (copyUri(u, dest)) name else null
+                    val name = exportedNameFor(u, p.id, idx)
+                    val dest = File(photosDir, ensureUniqueName(photosDir, name))
+                    if (copyUri(u, dest)) dest.name else null
                 }
                 p.id to names
             }
@@ -73,6 +75,72 @@ class PurchaseRepository(
             )
         }
 // ---- helpers ----
+private val exifFileDateFmt by lazy { SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US) }
+
+    private fun exportedNameFor(uri: Uri, purchaseId: String, index: Int): String {
+        // 1) Try to use the original display name
+        originalDisplayName(uri)?.let { dn ->
+            val clean = dn.trim().takeIf { it.isNotEmpty() }
+            if (!clean.isNullOrEmpty()) return clean
+        }
+
+        // 2) Try to derive from EXIF DateTimeOriginal
+        exifTimestampName(uri)?.let { return it }
+
+        // 3) Fallback to the legacy pattern
+        val ext = guessExtension(uri) ?: ".jpg"
+        return "p_${purchaseId}__${index + 1}$ext"
+    }
+
+    private fun originalDisplayName(uri: Uri): String? {
+        return try {
+            appContext.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { c ->
+                    if (c.moveToFirst()) c.getString(0) else null
+                }
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private fun exifTimestampName(uri: Uri): String? {
+        return try {
+            // Open as stream for EXIF read
+            appContext.contentResolver.openInputStream(uri)?.use { ins ->
+                val exif = ExifInterface(ins)
+                val dto = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL) ?: return null
+                // dto is "yyyy:MM:dd HH:mm:ss"
+                // Build filename-friendly part "yyyyMMdd_HHmmss"
+                val yyyy = dto.substring(0, 4)
+                val MM   = dto.substring(5, 7)
+                val dd   = dto.substring(8, 10)
+                val HH   = dto.substring(11, 13)
+                val mm   = dto.substring(14, 16)
+                val ss   = dto.substring(17, 19)
+                val base = "${yyyy}${MM}${dd}_${HH}${mm}${ss}"
+
+                val sub = exif.getAttribute(ExifInterface.TAG_SUBSEC_TIME_ORIGINAL)
+                val ext = (guessExtension(uri) ?: ".jpg")
+                if (!sub.isNullOrBlank()) "IMG_${base}_${sub.padStart(3, '0')}$ext"
+                else "IMG_${base}$ext"
+            }
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private fun ensureUniqueName(dir: File, name: String): String {
+        val dot = name.lastIndexOf('.')
+        val base = if (dot > 0) name.substring(0, dot) else name
+        val ext = if (dot > 0) name.substring(dot) else ""
+        var candidate = name
+        var i = 1
+        while (File(dir, candidate).exists()) {
+            candidate = "${base}_$i$ext"
+            i++
+        }
+        return candidate
+    }
 
     private fun parsePhotoList(stored: String?): List<Uri> {
         if (stored.isNullOrBlank()) return emptyList()

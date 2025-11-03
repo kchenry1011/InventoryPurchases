@@ -5,4 +5,5 @@
     <files-path name="files" path="." />
     <!-- Optional: external cache too, if you ever use it -->
     <external-cache-path name="external_cache" path="." />
+    <external-files-path name="external_files" path="." />
 </paths>

@@ -47,18 +47,18 @@ class FormViewModel(private val app: Application) : AndroidViewModel(app) {
             // Map the legacy SetPhoto to the new list (0 or 1 item)
             is FormIntent.SetPhoto -> {
                 val current = state.value
-                state.value = current.copy(
-                    photoUris = i.uri?.let { listOf(it) } ?: emptyList()
-                )
+                val imported = i.uri?.let { com.kevin.inventorypurchases.util.PhotoStamp.importAndStamp(app, it) }
+                state.value = current.copy(photoUris = imported?.let { listOf(it) } ?: emptyList())
             }
             is FormIntent.SetNotes -> {
                 state.value = state.value.copy(notes = i.v)
             }
             // New multi-photo actions
             is FormIntent.AddPhoto -> {
-                val s = state.value
-                if (!s.photoUris.contains(i.uri)) {
-                    state.value = s.copy(photoUris = s.photoUris + i.uri)
+                val localUri = com.kevin.inventorypurchases.util.PhotoStamp.importAndStamp(app, i.uri)
+                val current = state.value
+                if (!current.photoUris.contains(i.uri)) {
+                    state.value = current.copy(photoUris = current.photoUris + localUri)
                 }
             }
             is FormIntent.RemovePhotoAt -> {
@@ -98,8 +98,10 @@ class FormViewModel(private val app: Application) : AndroidViewModel(app) {
 
         state.value = s.copy(isSaving = true, error = null)
 
+        val photoListString = s.photoUris.toString()
+
         val p = Purchase(
-            photoUri = s.photoUris?.toString(),
+            photoUri = photoListString,
             description = desc,
             priceCents = cents,
             quantity = qty,

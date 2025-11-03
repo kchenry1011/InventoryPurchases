@@ -15,18 +15,25 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.kevin.inventorypurchases.util.LocationHelper
-
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 class ListViewModel(private val app: Application) : AndroidViewModel(app) {
     private val repo get() = (app as App).repo
     val items = repo.streamAll().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-
+    private val _isSharing = MutableStateFlow(false)
+    val isSharing = _isSharing.asStateFlow()
     private val shareZipChannel = Channel<Uri>(capacity = Channel.BUFFERED)
     val shareZip = shareZipChannel.receiveAsFlow()
 
     fun shareCsvAndPhotos() {
         viewModelScope.launch {
-            val uri = repo.exportCsvAndPhotosZip() // ← no String arg
-            shareZipChannel.send(uri)
+            _isSharing.value = true
+            try {
+                val uri = repo.exportCsvAndPhotosZip()
+                shareZipChannel.send(uri)
+            } finally {
+                _isSharing.value = false
+            }
         }
     }
 
