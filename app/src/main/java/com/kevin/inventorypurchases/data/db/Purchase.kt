@@ -13,5 +13,6 @@ data class Purchase(
     val quantity: Int,
     val purchaseDateEpoch: Long,
     val createdAt: Long = System.currentTimeMillis(),
-    val notes: String = ""   // <-- NEW
+    val notes: String = "",
+    val groupName: String? = null
 )

@@ -1,11 +1,11 @@
 package com.kevin.inventorypurchases.data.db
 
-import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.RoomDatabase
 
-@Database(entities = [Purchase::class],
-    version = 2,
+@Database(
+    entities = [Purchase::class],
+    version = 3,
     exportSchema = true
 )
 abstract class AppDb : RoomDatabase() {

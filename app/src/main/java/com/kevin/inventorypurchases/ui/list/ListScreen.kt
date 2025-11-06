@@ -41,6 +41,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,7 +72,7 @@ fun ListScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Purchases") },
+                title = { Text("") },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
                 actions = {
                     Button(
@@ -154,8 +155,20 @@ private fun PurchaseRow(
                 Text("Qty: ${p.quantity} • $${p.priceCents / 100}.${(p.priceCents % 100).toString().padStart(2, '0')}")
             },
             trailingContent = {
-                TextButton(onClick = onDelete) { Text("Delete") }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (!p.groupName.isNullOrBlank()) {
+                        androidx.compose.material3.AssistChip(
+                            onClick = { /* optional: later */ },
+                            label = { Text(p.groupName!!) }
+                        )
+                    }
+                    TextButton(onClick = onDelete) { Text("Delete") }
+                }
             }
         )
     }
 }
+

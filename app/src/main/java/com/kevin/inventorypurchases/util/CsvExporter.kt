@@ -21,24 +21,22 @@ object CsvExporter {
         rows: List<Purchase>,
         photoFilenamesFor: (Purchase) -> String
     ) {
-        csvFile.parentFile?.mkdirs()
         FileWriter(csvFile, false).use { w ->
             w.appendLine(header.joinToString(","))
             rows.forEach { p ->
                 val priceDollars = String.format(Locale.US, "$%.2f", p.priceCents / 100.0)
-                val dateStr = p.purchaseDateEpoch?.let { DateFmt.mmDdYyyy(it) } ?: ""
+                val dateStr = p.purchaseDateEpoch.let { DateFmt.mmDdYyyy(it) }
                 val cols = listOf(
                     escape(p.id),
-                    escape(dateStr),
                     escape(p.description),
                     escape(priceDollars),
                     p.quantity.toString(),
-                    escape(p.notes ?: ""),
+                    escape(dateStr),
+                    escape(p.notes),
                     escape(photoFilenamesFor(p))
                 )
                 val line = cols.joinToString(",")
-                // Optional: uncomment to verify
-                 android.util.Log.d("CsvExporter", "CSV: $line")
+                // android.util.Log.d("CsvExporter", "CSV: $line")
                 w.appendLine(line)
             }
             w.flush()

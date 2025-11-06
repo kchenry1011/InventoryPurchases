@@ -14,4 +14,5 @@ interface PurchaseDao {
     suspend fun deleteAll()
     @Query("DELETE FROM purchases WHERE id = :id")
     suspend fun deleteById(id: String)
+    // PurchaseDao.kt
 }
